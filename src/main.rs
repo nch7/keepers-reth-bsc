@@ -380,6 +380,12 @@ fn main() -> eyre::Result<()> {
                             EthSimulateTransactionAtApiImpl::new(ctx.registry.eth_api().clone());
                         ctx.modules.merge_configured(simulate_at_api.into_rpc())?;
                         tracing::info!("Succeed to register eth_simulateTransactionAt RPC API");
+
+                        tracing::info!("Start to register flashsimv2 RPC API...");
+                        use reth_bsc::rpc::flashsimv2::{FlashSimV2ApiImpl, FlashSimV2ApiServer};
+                        let flashsim_v2_api = FlashSimV2ApiImpl::new();
+                        ctx.modules.merge_configured(flashsim_v2_api.into_rpc())?;
+                        tracing::info!("Succeed to register flashsimv2 RPC API");
                         Ok(())
                     })
                     .launch().await?;
