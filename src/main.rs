@@ -1,13 +1,13 @@
 use clap::{Args, Parser};
 use reth::{builder::NodeHandle, cli::Cli};
+use reth_bsc::consensus::parlia::bls_signer;
 use reth_bsc::node::consensus::BscConsensus;
 use reth_bsc::{
-    chainspec::{parser::BscChainSpecParser, genesis_override},
+    chainspec::{genesis_override, parser::BscChainSpecParser},
     node::{evm::config::BscEvmConfig, BscNode},
 };
-use reth_bsc::consensus::parlia::bls_signer;
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 // We use jemalloc for performance reasons
 #[cfg(all(feature = "jemalloc", unix))]
@@ -370,6 +370,16 @@ fn main() -> eyre::Result<()> {
                         let blob_api = BlobApiImpl::new(pool, provider);
                         ctx.modules.merge_configured(blob_api.into_rpc())?;
                         tracing::info!("Succeed to register Blob RPC API");
+
+                        tracing::info!("Start to register eth_simulateTransactionAt RPC API...");
+                        use reth_bsc::rpc::simulate_transaction_at::{
+                            EthSimulateTransactionAtApiImpl, EthSimulateTransactionAtApiServer,
+                        };
+
+                        let simulate_at_api =
+                            EthSimulateTransactionAtApiImpl::new(ctx.registry.eth_api().clone());
+                        ctx.modules.merge_configured(simulate_at_api.into_rpc())?;
+                        tracing::info!("Succeed to register eth_simulateTransactionAt RPC API");
                         Ok(())
                     })
                     .launch().await?;
