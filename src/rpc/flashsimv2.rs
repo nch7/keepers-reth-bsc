@@ -1,7 +1,7 @@
 use alloy_primitives::{Address, B256};
 use alloy_rpc_types_engine::PayloadId;
 use jsonrpsee::{
-    core::{async_trait, RpcResult},
+    core::{RpcResult, async_trait},
     proc_macros::rpc,
 };
 use jsonrpsee_types::ErrorObjectOwned;
@@ -42,6 +42,12 @@ pub trait FlashSimV2Api {
         sims: Vec<alloy_primitives::Bytes>,
     ) -> RpcResult<FlashSimV2SimulateResponse>;
 
+    #[method(name = "simulateAtLatestFlashblockState")]
+    async fn simulate_at_latest_flashblock_state(
+        &self,
+        bundle: Vec<alloy_primitives::Bytes>,
+    ) -> RpcResult<Vec<SimulateTransactionAtResult>>;
+
     #[method(name = "subscribeFilteredLogsV1")]
     async fn subscribe_filtered_logs_v1(&self, params: FilteredLogsParamsV1) -> RpcResult<String>;
 
@@ -76,6 +82,13 @@ impl FlashSimV2ApiServer for FlashSimV2ApiImpl {
         Err(not_ready())
     }
 
+    async fn simulate_at_latest_flashblock_state(
+        &self,
+        _bundle: Vec<alloy_primitives::Bytes>,
+    ) -> RpcResult<Vec<SimulateTransactionAtResult>> {
+        Err(not_ready())
+    }
+
     async fn subscribe_filtered_logs_v1(&self, params: FilteredLogsParamsV1) -> RpcResult<String> {
         if params.topic0s.is_empty() {
             return Err(bad_filter());
@@ -106,6 +119,8 @@ fn bad_filter() -> ErrorObjectOwned {
 
 #[cfg(test)]
 mod tests {
+    use alloy_primitives::Bytes;
+
     use super::*;
 
     #[test]
@@ -116,5 +131,15 @@ mod tests {
     #[test]
     fn returns_expected_bad_filter_code() {
         assert_eq!(bad_filter().code(), ERR_BAD_FILTER);
+    }
+
+    #[tokio::test]
+    async fn simulate_at_latest_flashblock_state_returns_not_ready() {
+        let api = FlashSimV2ApiImpl::new();
+        let err = api
+            .simulate_at_latest_flashblock_state(vec![Bytes::from_static(&[0x02, 0x01])])
+            .await
+            .expect_err("expected not-ready error");
+        assert_eq!(err.code(), ERR_NOT_READY);
     }
 }
