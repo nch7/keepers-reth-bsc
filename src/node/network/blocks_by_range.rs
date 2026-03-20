@@ -2,8 +2,8 @@ use alloy_primitives::B256;
 use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
 use bytes::BufMut;
 
-use crate::node::primitives::BscBlock;
 use crate::node::network::bsc_protocol::protocol::proto::BscProtoMessageId;
+use crate::node::primitives::BscBlock;
 
 /// Max range allowed in a single request, mirroring geth's constant.
 pub const MAX_REQUEST_RANGE_BLOCKS_COUNT: u64 = 64;
@@ -75,7 +75,7 @@ impl Decodable for BlocksByRangePacket {
 /// via global providers. It prioritizes `start_block_hash` if non-zero, otherwise uses
 /// `start_block_height`. The traversal follows parent hashes up to `count` blocks.
 pub fn build_blocks_by_range_response(req: &GetBlocksByRangePacket) -> BlocksByRangePacket {
-    use crate::shared::{ get_cached_block_by_hash, get_cached_block_by_number };
+    use crate::shared::{get_cached_block_by_hash, get_cached_block_by_number};
 
     let mut blocks: Vec<BscBlock> = Vec::new();
 
@@ -89,15 +89,16 @@ pub fn build_blocks_by_range_response(req: &GetBlocksByRangePacket) -> BlocksByR
     // Walk back by parents up to count
     let mut remaining = req.count.min(MAX_REQUEST_RANGE_BLOCKS_COUNT);
     while let (Some(block), r) = (current_block.clone(), remaining) {
-        if r == 0 { break; }
+        if r == 0 {
+            break;
+        }
         // Push the current full block
         blocks.push(block.clone());
 
         // Prepare next parent
         let parent_hash = block.header.parent_hash;
-        current_block = if parent_hash != B256::ZERO {
-            get_cached_block_by_hash(&parent_hash)
-        } else { None };
+        current_block =
+            if parent_hash != B256::ZERO { get_cached_block_by_hash(&parent_hash) } else { None };
         remaining -= 1;
     }
 
@@ -168,8 +169,8 @@ impl From<BlocksByRangePacketInner> for BlocksByRangePacket {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_consensus::Header;
     use crate::BscBlockBody;
+    use alloy_consensus::Header;
     use bytes::BytesMut;
 
     #[test]
@@ -187,7 +188,13 @@ mod tests {
         assert_eq!(req, dec);
 
         // Response roundtrip with 1 block
-        let b = BscBlock { header: Header::default(), body: BscBlockBody { inner: reth_ethereum_primitives::BlockBody::default(), sidecars: None } };
+        let b = BscBlock {
+            header: Header::default(),
+            body: BscBlockBody {
+                inner: reth_ethereum_primitives::BlockBody::default(),
+                sidecars: None,
+            },
+        };
         let res = BlocksByRangePacket { request_id: 7, blocks: vec![b.clone()] };
         let mut bytes = BytesMut::new();
         res.encode(&mut bytes);
@@ -205,18 +212,35 @@ mod tests {
 
         // Build a 2-block chain: parent <- child
         let parent_header = Header { number: 1, ..Default::default() };
-        let parent_block = BscBlock { header: parent_header, body: BscBlockBody { inner: reth_ethereum_primitives::BlockBody::default(), sidecars: None } };
+        let parent_block = BscBlock {
+            header: parent_header,
+            body: BscBlockBody {
+                inner: reth_ethereum_primitives::BlockBody::default(),
+                sidecars: None,
+            },
+        };
         let parent_hash = parent_block.header.hash_slow();
 
         let child_header = Header { parent_hash, number: 2, ..Default::default() };
-        let child_block = BscBlock { header: child_header, body: BscBlockBody { inner: reth_ethereum_primitives::BlockBody::default(), sidecars: None } };
+        let child_block = BscBlock {
+            header: child_header,
+            body: BscBlockBody {
+                inner: reth_ethereum_primitives::BlockBody::default(),
+                sidecars: None,
+            },
+        };
         let child_hash = child_block.header.hash_slow();
 
         // Cache both blocks so builder can fetch full bodies from cache
         crate::shared::cache_full_block(parent_block.clone());
         crate::shared::cache_full_block(child_block.clone());
 
-        let req = GetBlocksByRangePacket { request_id: 1, start_block_height: 0, start_block_hash: child_hash, count: 2 };
+        let req = GetBlocksByRangePacket {
+            request_id: 1,
+            start_block_height: 0,
+            start_block_hash: child_hash,
+            count: 2,
+        };
         let resp = build_blocks_by_range_response(&req);
         assert_eq!(resp.request_id, 1);
         assert_eq!(resp.blocks.len(), 2);
@@ -232,17 +256,34 @@ mod tests {
 
         // Build a 2-block chain but cache only the child
         let parent_header = Header::default();
-        let parent_block = BscBlock { header: parent_header, body: BscBlockBody { inner: reth_ethereum_primitives::BlockBody::default(), sidecars: None } };
+        let parent_block = BscBlock {
+            header: parent_header,
+            body: BscBlockBody {
+                inner: reth_ethereum_primitives::BlockBody::default(),
+                sidecars: None,
+            },
+        };
         let parent_hash = parent_block.header.hash_slow();
 
         let child_header = Header { parent_hash, ..Default::default() };
-        let child_block = BscBlock { header: child_header, body: BscBlockBody { inner: reth_ethereum_primitives::BlockBody::default(), sidecars: None } };
+        let child_block = BscBlock {
+            header: child_header,
+            body: BscBlockBody {
+                inner: reth_ethereum_primitives::BlockBody::default(),
+                sidecars: None,
+            },
+        };
         let child_hash = child_block.header.hash_slow();
 
         // Cache only child block
         crate::shared::cache_full_block(child_block.clone());
 
-        let req = GetBlocksByRangePacket { request_id: 2, start_block_height: 0, start_block_hash: child_hash, count: 2 };
+        let req = GetBlocksByRangePacket {
+            request_id: 2,
+            start_block_height: 0,
+            start_block_hash: child_hash,
+            count: 2,
+        };
         let resp = build_blocks_by_range_response(&req);
         assert_eq!(resp.request_id, 2);
         // Parent missing => only child should be included

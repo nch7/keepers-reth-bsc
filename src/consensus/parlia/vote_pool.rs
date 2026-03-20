@@ -1,5 +1,9 @@
 use once_cell::sync::Lazy;
-use std::{collections::{BinaryHeap, HashMap, HashSet}, sync::RwLock, cmp::Reverse};
+use std::{
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap, HashSet},
+    sync::RwLock,
+};
 
 use alloy_primitives::{BlockNumber, B256};
 
@@ -66,8 +70,8 @@ struct VotePool {
 
 impl VotePool {
     fn new() -> Self {
-        Self { 
-            received_votes: HashSet::new(), 
+        Self {
+            received_votes: HashSet::new(),
             cur_votes: HashMap::new(),
             cur_votes_pq: VotesPriorityQueue::new(),
         }
@@ -78,15 +82,15 @@ impl VotePool {
         if self.received_votes.insert(vote_hash) {
             // Track received votes count
             VOTE_METRICS.received_votes_total.increment(1);
-            
+
             // Use target_hash as the key for organizing votes
             let block_hash = vote.data.target_hash;
-            
+
             // Add to priority queue if this is a new block
             if !self.cur_votes.contains_key(&block_hash) {
                 self.cur_votes_pq.push(vote.data);
             }
-            
+
             self.cur_votes.entry(block_hash).or_default().vote_messages.push(vote);
         }
     }
@@ -101,8 +105,8 @@ impl VotePool {
         all_votes
     }
 
-    fn len(&self) -> usize { 
-        self.cur_votes.values().map(|vm| vm.vote_messages.len()).sum() 
+    fn len(&self) -> usize {
+        self.cur_votes.values().map(|vm| vm.vote_messages.len()).sum()
     }
 
     fn fetch_vote_by_block_hash(&self, block_hash: B256) -> Vec<VoteEnvelope> {
@@ -118,11 +122,12 @@ impl VotePool {
     fn prune(&mut self, latest_block_number: BlockNumber) {
         // Remove votes in the range [, latestBlockNumber - LOWER_LIMIT_OF_VOTE_BLOCK_NUMBER]
         while let Some(vote_data) = self.cur_votes_pq.peek() {
-            if vote_data.target_number + LOWER_LIMIT_OF_VOTE_BLOCK_NUMBER - 1 < latest_block_number {
+            if vote_data.target_number + LOWER_LIMIT_OF_VOTE_BLOCK_NUMBER - 1 < latest_block_number
+            {
                 // Remove from priority queue
                 let vote_data = self.cur_votes_pq.pop().unwrap();
                 let block_hash = vote_data.target_hash;
-                
+
                 // Remove from votes map and received_votes set
                 if let Some(vote_box) = self.cur_votes.remove(&block_hash) {
                     for vote in vote_box.vote_messages {
@@ -166,8 +171,8 @@ pub fn drain() -> Vec<VoteEnvelope> {
 }
 
 /// Current number of queued votes.
-pub fn len() -> usize { 
-    VOTE_POOL.read().expect("vote pool poisoned").len() 
+pub fn len() -> usize {
+    VOTE_POOL.read().expect("vote pool poisoned").len()
 }
 
 /// Check if the pool is empty.
@@ -188,5 +193,3 @@ pub fn prune(latest_block_number: BlockNumber) {
     drop(pool);
     update_vote_pool_size_metric(size);
 }
-
-

@@ -27,10 +27,10 @@ pub const LORENTZ_TURN_LENGTH: u8 = 8;
 pub const MAXWELL_EPOCH_LENGTH: u64 = 1000;
 pub const MAXWELL_TURN_LENGTH: u8 = 16;
 
-pub const DEFAULT_BLOCK_INTERVAL: u64 = 3000;   // 3000 ms
-pub const LORENTZ_BLOCK_INTERVAL: u64 = 1500;   // 1500 ms
-pub const MAXWELL_BLOCK_INTERVAL: u64 = 750;    //  750 ms
-pub const FERMI_BLOCK_INTERVAL: u64 = 450;      //  450 ms
+pub const DEFAULT_BLOCK_INTERVAL: u64 = 3000; // 3000 ms
+pub const LORENTZ_BLOCK_INTERVAL: u64 = 1500; // 1500 ms
+pub const MAXWELL_BLOCK_INTERVAL: u64 = 750; //  750 ms
+pub const FERMI_BLOCK_INTERVAL: u64 = 450; //  450 ms
 
 /// Global metrics for vote attestation operations.
 static VOTE_METRICS: Lazy<BscVoteMetrics> = Lazy::new(BscVoteMetrics::default);
@@ -92,9 +92,9 @@ impl Snapshot {
 
             // Step 1: Build mapping with original order to maintain validator->vote_addr correspondence
             for (i, v) in validators.iter().enumerate() {
-                let info = ValidatorInfo { 
-                    index: 0,  // Will be set after sorting
-                    vote_addr: vote_addrs[i] 
+                let info = ValidatorInfo {
+                    index: 0, // Will be set after sorting
+                    vote_addr: vote_addrs[i],
                 };
                 validators_map.insert(*v, info);
             }
@@ -113,10 +113,7 @@ impl Snapshot {
             // Sort first, then create map with indices
             validators.sort();
             for (i, v) in validators.iter().enumerate() {
-                let info = ValidatorInfo {
-                    index: i as u64 + 1,
-                    vote_addr: VoteAddress::ZERO,
-                };
+                let info = ValidatorInfo { index: i as u64 + 1, vote_addr: VoteAddress::ZERO };
                 validators_map.insert(*v, info);
             }
         }
@@ -240,7 +237,9 @@ impl Snapshot {
             && (!is_bohr || !snap.recent_proposers.contains_key(&epoch_key))
         {
             // Epoch change driven by new validator set / checkpoint header.
-            if let Some(tl) = turn_length { snap.turn_length = Some(tl) }
+            if let Some(tl) = turn_length {
+                snap.turn_length = Some(tl)
+            }
 
             if is_bohr {
                 // BEP-404: Clear Miner History when Switching Validators Set
@@ -267,10 +266,13 @@ impl Snapshot {
 
                 // Step 1: Build mapping with original order to maintain validator->vote_addr correspondence
                 for (i, v) in new_validators.iter().enumerate() {
-                    validators_map.insert(*v, ValidatorInfo { 
-                        index: 0,  // Will be set after sorting
-                        vote_addr: vote_addrs[i] 
-                    });
+                    validators_map.insert(
+                        *v,
+                        ValidatorInfo {
+                            index: 0, // Will be set after sorting
+                            vote_addr: vote_addrs[i],
+                        },
+                    );
                 }
 
                 // Step 2: Sort validators
@@ -286,10 +288,10 @@ impl Snapshot {
                 // Pre-Luban: no vote addresses, just sort and create default entries
                 new_validators.sort();
                 for (i, v) in new_validators.iter().enumerate() {
-                    validators_map.insert(*v, ValidatorInfo {
-                        index: i as u64 + 1,
-                        vote_addr: VoteAddress::ZERO,
-                    });
+                    validators_map.insert(
+                        *v,
+                        ValidatorInfo { index: i as u64 + 1, vote_addr: VoteAddress::ZERO },
+                    );
                 }
             }
             snap.validators = new_validators;

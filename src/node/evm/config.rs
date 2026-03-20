@@ -1,11 +1,15 @@
 use super::{
-    assembler::BscBlockAssembler,
-    builder::BscBlockBuilder,
-    executor::BscBlockExecutor,
+    assembler::BscBlockAssembler, builder::BscBlockBuilder, executor::BscBlockExecutor,
     factory::BscEvmFactory,
 };
 use crate::{
-    BscPrimitives, chainspec::BscChainSpec, consensus::parlia::VoteAddress, evm::transaction::BscTxEnv, hardforks::{BscHardforks, bsc::BscHardfork}, node::engine_api::validator::BscExecutionData, system_contracts::{SystemContract, feynman_fork::ValidatorElectionInfo}
+    chainspec::BscChainSpec,
+    consensus::parlia::VoteAddress,
+    evm::transaction::BscTxEnv,
+    hardforks::{bsc::BscHardfork, BscHardforks},
+    node::engine_api::validator::BscExecutionData,
+    system_contracts::{feynman_fork::ValidatorElectionInfo, SystemContract},
+    BscPrimitives,
 };
 use alloy_consensus::{transaction::SignerRecoverable, BlockHeader, Header, TxReceipt};
 use alloy_eips::eip7840::BlobParams;
@@ -16,19 +20,24 @@ use reth_evm::{
     block::{BlockExecutorFactory, BlockExecutorFor},
     eth::{receipt_builder::ReceiptBuilder, EthBlockExecutionCtx},
     execute::BlockBuilder,
-    ConfigureEngineEvm, ConfigureEvm, Database, EvmEnv, EvmFactory, EvmFor, ExecutableTxIterator, ExecutionCtxFor,
-    FromRecoveredTx, FromTxWithEncoded, InspectorFor, IntoTxEnv, NextBlockEnvAttributes,
+    ConfigureEngineEvm, ConfigureEvm, Database, EvmEnv, EvmFactory, EvmFor, ExecutableTxIterator,
+    ExecutionCtxFor, FromRecoveredTx, FromTxWithEncoded, InspectorFor, IntoTxEnv,
+    NextBlockEnvAttributes,
 };
 use reth_evm_ethereum::RethReceiptBuilder;
 use reth_primitives::{BlockTy, HeaderTy, SealedBlock, SealedHeader, TransactionSigned};
 use reth_revm::State;
 use revm::{
-    Inspector, context::{BlockEnv, CfgEnv}, context_interface::block::BlobExcessGasAndPrice, primitives::{hardfork::SpecId}
+    context::{BlockEnv, CfgEnv},
+    context_interface::block::BlobExcessGasAndPrice,
+    primitives::hardfork::SpecId,
+    Inspector,
 };
 use std::{borrow::Cow, cell::RefCell, convert::Infallible, rc::Rc, sync::Arc};
 
 /// Type alias for system transactions to reduce complexity
-type SystemTxs = Vec<reth_primitives_traits::Recovered<reth_primitives_traits::TxTy<crate::BscPrimitives>>>;
+type SystemTxs =
+    Vec<reth_primitives_traits::Recovered<reth_primitives_traits::TxTy<crate::BscPrimitives>>>;
 
 #[derive(Debug, Clone, Default)]
 pub struct BscExecutionSharedCtxInner {
@@ -51,9 +60,7 @@ pub struct BscExecutionSharedCtx {
 
 impl Default for BscExecutionSharedCtx {
     fn default() -> Self {
-        Self {
-            inner: Rc::new(RefCell::new(BscExecutionSharedCtxInner::default())),
-        }
+        Self { inner: Rc::new(RefCell::new(BscExecutionSharedCtxInner::default())) }
     }
 }
 
@@ -75,7 +82,6 @@ impl<'a> BscBlockExecutionCtx<'a> {
         &self.base
     }
 }
-
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
@@ -212,7 +218,11 @@ where
 
     fn evm_env(&self, header: &Header) -> EvmEnv<BscHardfork> {
         let mut blob_params = None;
-        if BscHardforks::is_cancun_active_at_timestamp(self.chain_spec(), header.number, header.timestamp) {
+        if BscHardforks::is_cancun_active_at_timestamp(
+            self.chain_spec(),
+            header.number,
+            header.timestamp,
+        ) {
             blob_params = self.chain_spec().blob_params_at_timestamp(header.timestamp);
         }
         let spec = revm_spec_by_timestamp_and_block_number(
@@ -288,7 +298,6 @@ where
                 BlobExcessGasAndPrice { excess_blob_gas, blob_gasprice }
             });
 
-  
         // Refer to geth-bsc: https://github.com/bnb-chain/bsc/blob/master/consensus/misc/eip1559/eip1559.go#L61
         let mut basefee = Some(EIP1559_INITIAL_BASE_FEE);
 
@@ -351,7 +360,11 @@ where
         parent: &SealedHeader<HeaderTy<Self::Primitives>>,
         attributes: Self::NextBlockEnvCtx,
     ) -> ExecutionCtxFor<'_, Self> {
-        tracing::trace!("Try to create next block ctx for miner, next_block_numer={}, parent_hash={}", parent.number+1, parent.hash());
+        tracing::trace!(
+            "Try to create next block ctx for miner, next_block_numer={}, parent_hash={}",
+            parent.number + 1,
+            parent.hash()
+        );
         BscBlockExecutionCtx {
             base: EthBlockExecutionCtx {
                 parent_hash: parent.hash(),
@@ -388,14 +401,8 @@ where
             *self.executor_factory.receipt_builder(),
             SystemContract::new(self.executor_factory.spec().clone()),
         );
-        
-        BscBlockBuilder::new(
-            bsc_executor,
-            ctx,
-            shared_ctx,
-            &self.block_assembler,
-            parent,
-        )
+
+        BscBlockBuilder::new(bsc_executor, ctx, shared_ctx, &self.block_assembler, parent)
     }
 }
 

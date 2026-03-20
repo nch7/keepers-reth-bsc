@@ -1,12 +1,13 @@
 use alloy_primitives::{Address, B256};
 use alloy_rpc_types_engine::PayloadId;
 use jsonrpsee::{
-    core::{RpcResult, async_trait},
+    core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
 use jsonrpsee_types::ErrorObjectOwned;
 
 use crate::rpc::simulate_transaction_at::SimulateTransactionAtResult;
+use crate::rpc::tx_input::SimulationTxInput;
 
 const ERR_NOT_READY: i32 = -39_102;
 const ERR_BAD_FILTER: i32 = -39_105;
@@ -39,14 +40,8 @@ pub trait FlashSimV2Api {
         payload_id: PayloadId,
         index: u64,
         block_number: u64,
-        sims: Vec<alloy_primitives::Bytes>,
+        sims: Vec<SimulationTxInput<alloy_rpc_types::TransactionRequest>>,
     ) -> RpcResult<FlashSimV2SimulateResponse>;
-
-    #[method(name = "simulateAtLatestFlashblockState")]
-    async fn simulate_at_latest_flashblock_state(
-        &self,
-        bundle: Vec<alloy_primitives::Bytes>,
-    ) -> RpcResult<Vec<SimulateTransactionAtResult>>;
 
     #[method(name = "subscribeFilteredLogsV1")]
     async fn subscribe_filtered_logs_v1(&self, params: FilteredLogsParamsV1) -> RpcResult<String>;
@@ -77,15 +72,8 @@ impl FlashSimV2ApiServer for FlashSimV2ApiImpl {
         _payload_id: PayloadId,
         _index: u64,
         _block_number: u64,
-        _sims: Vec<alloy_primitives::Bytes>,
+        _sims: Vec<SimulationTxInput<alloy_rpc_types::TransactionRequest>>,
     ) -> RpcResult<FlashSimV2SimulateResponse> {
-        Err(not_ready())
-    }
-
-    async fn simulate_at_latest_flashblock_state(
-        &self,
-        _bundle: Vec<alloy_primitives::Bytes>,
-    ) -> RpcResult<Vec<SimulateTransactionAtResult>> {
         Err(not_ready())
     }
 
@@ -119,7 +107,7 @@ fn bad_filter() -> ErrorObjectOwned {
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::Bytes;
+    use alloy_primitives::{address, B256};
 
     use super::*;
 
@@ -134,10 +122,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn simulate_at_latest_flashblock_state_returns_not_ready() {
+    async fn simulate_v1_returns_not_ready() {
         let api = FlashSimV2ApiImpl::new();
         let err = api
-            .simulate_at_latest_flashblock_state(vec![Bytes::from_static(&[0x02, 0x01])])
+            .simulate_v1(PayloadId::new([0; 8]), 0, 0, Vec::new())
+            .await
+            .expect_err("expected not-ready error");
+        assert_eq!(err.code(), ERR_NOT_READY);
+    }
+
+    #[tokio::test]
+    async fn subscribe_filtered_logs_v1_keeps_bad_filter_behavior() {
+        let api = FlashSimV2ApiImpl::new();
+        let err = api
+            .subscribe_filtered_logs_v1(FilteredLogsParamsV1 {
+                topic0s: Vec::new(),
+                addresses: None,
+            })
+            .await
+            .expect_err("expected bad-filter error");
+        assert_eq!(err.code(), ERR_BAD_FILTER);
+    }
+
+    #[tokio::test]
+    async fn subscribe_filtered_logs_v1_returns_not_ready_for_valid_filter() {
+        let api = FlashSimV2ApiImpl::new();
+        let err = api
+            .subscribe_filtered_logs_v1(FilteredLogsParamsV1 {
+                topic0s: vec![B256::ZERO],
+                addresses: Some(vec![address!("0000000000000000000000000000000000000001")]),
+            })
             .await
             .expect_err("expected not-ready error");
         assert_eq!(err.code(), ERR_NOT_READY);

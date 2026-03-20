@@ -1,23 +1,22 @@
-use reth::consensus::{HeaderValidator, ConsensusError, Consensus};
-use reth::primitives::SealedHeader;
-use reth_chainspec::{EthChainSpec, EthereumHardforks, EthereumHardfork};
+use super::Parlia;
 use crate::consensus::parlia::util::calculate_millisecond_timestamp;
 use crate::hardforks::BscHardforks;
-use super::Parlia;
-use alloy_consensus::{Header, EMPTY_OMMER_ROOT_HASH};
-use alloy_primitives::B256;
-use reth_primitives::GotExpected;
-use alloy_eips::eip4844::{DATA_GAS_PER_BLOB, MAX_DATA_GAS_PER_BLOCK_DENCUN};
 use crate::BscBlock;
+use alloy_consensus::{Header, EMPTY_OMMER_ROOT_HASH};
+use alloy_eips::eip4844::{DATA_GAS_PER_BLOB, MAX_DATA_GAS_PER_BLOCK_DENCUN};
+use alloy_primitives::B256;
+use reth::consensus::{Consensus, ConsensusError, HeaderValidator};
+use reth::primitives::SealedHeader;
+use reth_chainspec::{EthChainSpec, EthereumHardfork, EthereumHardforks};
+use reth_primitives::GotExpected;
 use reth_primitives_traits::Block;
-
 
 pub const fn validate_header_gas(header: &Header) -> Result<(), ConsensusError> {
     if header.gas_used > header.gas_limit {
         return Err(ConsensusError::HeaderGasUsedExceedsGasLimit {
             gas_used: header.gas_used,
             gas_limit: header.gas_limit,
-        })
+        });
     }
     Ok(())
 }
@@ -28,10 +27,10 @@ pub fn validate_header_base_fee<ChainSpec: EthereumHardforks>(
     header: &Header,
     chain_spec: &ChainSpec,
 ) -> Result<(), ConsensusError> {
-    if chain_spec.is_ethereum_fork_active_at_block(EthereumHardfork::London, header.number) &&
-        header.base_fee_per_gas.is_none()
+    if chain_spec.is_ethereum_fork_active_at_block(EthereumHardfork::London, header.number)
+        && header.base_fee_per_gas.is_none()
     {
-        return Err(ConsensusError::BaseFeeMissing)
+        return Err(ConsensusError::BaseFeeMissing);
     }
     Ok(())
 }
@@ -45,14 +44,14 @@ pub fn validate_4844_header_of_bsc(header: &SealedHeader) -> Result<(), Consensu
         return Err(ConsensusError::BlobGasUsedExceedsMaxBlobGasPerBlock {
             blob_gas_used,
             max_blob_gas_per_block: MAX_DATA_GAS_PER_BLOCK_DENCUN,
-        })
+        });
     }
 
     if blob_gas_used % DATA_GAS_PER_BLOB != 0 {
         return Err(ConsensusError::BlobGasUsedNotMultipleOfBlobGasPerBlob {
             blob_gas_used,
             blob_gas_per_blob: DATA_GAS_PER_BLOB,
-        })
+        });
     }
 
     // `excess_blob_gas` must also be a multiple of `DATA_GAS_PER_BLOB`. This will be checked later
@@ -61,26 +60,29 @@ pub fn validate_4844_header_of_bsc(header: &SealedHeader) -> Result<(), Consensu
         return Err(ConsensusError::BlobGasUsedNotMultipleOfBlobGasPerBlob {
             blob_gas_used: excess_blob_gas,
             blob_gas_per_blob: DATA_GAS_PER_BLOB,
-        })
+        });
     }
 
     Ok(())
 }
 
-impl<ChainSpec: EthChainSpec + BscHardforks + std::fmt::Debug + Send + Sync + 'static> HeaderValidator for Parlia<ChainSpec> {
+impl<ChainSpec: EthChainSpec + BscHardforks + std::fmt::Debug + Send + Sync + 'static>
+    HeaderValidator for Parlia<ChainSpec>
+{
     fn validate_header(&self, header: &SealedHeader) -> Result<(), ConsensusError> {
         // Don't waste time checking blocks from the future
         let present_timestamp = self.present_millis_timestamp();
         let header_timestamp = calculate_millisecond_timestamp(header);
         if header_timestamp > present_timestamp {
             return Err(ConsensusError::TimestampIsInFuture {
-               timestamp: header_timestamp,
-               present_timestamp,
+                timestamp: header_timestamp,
+                present_timestamp,
             });
         }
 
         // Check extra data
-        self.check_header_extra(header).map_err(|e| ConsensusError::Other(format!("Invalid header extra: {e}")))?;
+        self.check_header_extra(header)
+            .map_err(|e| ConsensusError::Other(format!("Invalid header extra: {e}")))?;
 
         // Ensure that the block with no uncles
         if header.ommers_hash != EMPTY_OMMER_ROOT_HASH {
@@ -93,25 +95,26 @@ impl<ChainSpec: EthChainSpec + BscHardforks + std::fmt::Debug + Send + Sync + 's
         validate_header_base_fee(header, &self.spec)?;
 
         // Ensures that EIP-4844 fields are valid once cancun is active.
-        if BscHardforks::is_cancun_active_at_timestamp(&*self.spec, header.number, header.timestamp) {
+        if BscHardforks::is_cancun_active_at_timestamp(&*self.spec, header.number, header.timestamp)
+        {
             validate_4844_header_of_bsc(header)?;
         } else if header.blob_gas_used.is_some() {
-            return Err(ConsensusError::BlobGasUsedUnexpected)
+            return Err(ConsensusError::BlobGasUsedUnexpected);
         } else if header.excess_blob_gas.is_some() {
-            return Err(ConsensusError::ExcessBlobGasUnexpected)
+            return Err(ConsensusError::ExcessBlobGasUnexpected);
         }
 
         if self.spec.is_bohr_active_at_timestamp(header.number, header.timestamp) {
-            if header.parent_beacon_block_root.is_none() ||
-               header.parent_beacon_block_root.unwrap() != B256::default()
+            if header.parent_beacon_block_root.is_none()
+                || header.parent_beacon_block_root.unwrap() != B256::default()
             {
-                return Err(ConsensusError::ParentBeaconBlockRootUnexpected)
+                return Err(ConsensusError::ParentBeaconBlockRootUnexpected);
             }
         } else if header.parent_beacon_block_root.is_some() {
-           return Err(ConsensusError::ParentBeaconBlockRootUnexpected)
+            return Err(ConsensusError::ParentBeaconBlockRootUnexpected);
         }
 
-       Ok(())
+        Ok(())
     }
 
     fn validate_header_against_parent(
@@ -124,8 +127,9 @@ impl<ChainSpec: EthChainSpec + BscHardforks + std::fmt::Debug + Send + Sync + 's
     }
 }
 
-
-impl<ChainSpec: EthChainSpec + BscHardforks + std::fmt::Debug + Send + Sync + 'static> Consensus<BscBlock> for Parlia<ChainSpec> {
+impl<ChainSpec: EthChainSpec + BscHardforks + std::fmt::Debug + Send + Sync + 'static>
+    Consensus<BscBlock> for Parlia<ChainSpec>
+{
     type Error = ConsensusError;
 
     fn validate_body_against_header(

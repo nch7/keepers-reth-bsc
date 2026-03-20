@@ -132,7 +132,7 @@ where
             return Err(PayloadError::BlockHash {
                 execution: sealed_block.hash(),
                 consensus: expected_hash,
-            })?
+            })?;
         }
 
         Ok(sealed_block)

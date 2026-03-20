@@ -5,7 +5,7 @@ use crate::evm::{
     blacklist,
 };
 
-use alloy_primitives::{U256};
+use alloy_primitives::U256;
 use reth_evm::Database;
 use revm::{bytecode::Bytecode, primitives::eip7702};
 

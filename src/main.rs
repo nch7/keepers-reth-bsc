@@ -386,6 +386,12 @@ fn main() -> eyre::Result<()> {
                         let flashsim_v2_api = FlashSimV2ApiImpl::new();
                         ctx.modules.merge_configured(flashsim_v2_api.into_rpc())?;
                         tracing::info!("Succeed to register flashsimv2 RPC API");
+
+                        tracing::info!("Start to register keepers RPC API...");
+                        use reth_bsc::rpc::keepers::{KeepersApiImpl, KeepersApiServer};
+                        let keepers_api = KeepersApiImpl::new(ctx.registry.eth_api().clone());
+                        ctx.modules.merge_configured(keepers_api.into_rpc())?;
+                        tracing::info!("Succeed to register keepers RPC API");
                         Ok(())
                     })
                     .launch().await?;
